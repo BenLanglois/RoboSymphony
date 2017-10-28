@@ -6,14 +6,28 @@ void drive() { // run by main.c every loop
 
 }
 
-void check_motors(int speed) { // checks when motors should be stopped or started
+void set_motor_dir(pin1, pin2, dir) {
+    if (dir) {
+        digitalWrite(pin1, HIGH);
+        digitalWrite(pin2, LOW);
+    } else {
+        digitalWrite(pin1, LOW);
+        digitalWrite(pin2, HIGH);
+    }
+}
+
+void motor_speed(pin, speed) {
+    analogWrite(pin, speed);
+}
+
+/*void check_motors(int speed) { // checks when motors should be stopped or started
     current_time = millis()
     for (bool side = 0; side <= 1; side ++) { // For left and right motor
         if (current_time >= start_time[side]) { // Start the pulse
             digitalWrite(side_pin[side], HIGH);
             motor_pwm(side, speed);
         }
-        else if (current_time >= stop_time[side]) // Stop the pulse
+        if (current_time >= stop_time[side]) // Stop the pulse
             digitalWrite(side_pin[side], LOW);
     }
 }
@@ -23,7 +37,7 @@ void motor_pwm(bool side, int speed) { // sets stop and start times for motors
     current_time = millis();
     stop_time[side] = current_time + speed;
     start_time[side] = current_time + 5;
-}
+}*/
 
 
 // float turn_direction: turn left/right, determined by PID
