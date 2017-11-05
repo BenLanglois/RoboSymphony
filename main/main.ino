@@ -96,6 +96,18 @@ PID right_PID(&right.speed, &right_motor_power, &target_RPM, kp, ki, kd, DIRECT)
 // TEMPORARY
 void follow_line() {}
 
+Motor left;
+Motor right;
+
+int kp = 0, ki = 0, kd = 0;
+
+int target_speed;
+
+double left_motor_power = 0, right_motor_power = 0;
+
+//Create PID controllers
+PID left_PID(&left.speed, &left_motor_power, &target_RPM, kp, ki, kd, DIRECT);
+PID right_PID(&right.speed, &right_motor_power, &target_RPM, kp, ki, kd, DIRECT);
 
 void setup() {
     //bool state = IDLE;
