@@ -1,47 +1,37 @@
-unsigned long start_time[] = {0, 0}, stop_time[] = {0, 0}; // When the motors should start and stop pulsing
-int current_time;
-int side_pin[] = {LEFT_MOTOR, RIGHT_MOTOR};
 
-void drive() { // run by main.c every loop
 
-}
+void follow_line() {
+    read_sensor(left_sensor);
+    read_sensor(right_sensor);
 
-void set_motor_dir(pin1, pin2, dir) {
-    if (dir) {
-        digitalWrite(pin1, HIGH);
-        digitalWrite(pin2, LOW);
-    } else {
-        digitalWrite(pin1, LOW);
-        digitalWrite(pin2, HIGH);
+    // Has veered left
+    if (left_sensor.reading > 150 && right_sensor.reading < 200) { // Test values
+        right_turn_ratio = 5; // Test value
+        current_drift = LEFT;
     }
-}
-
-void motor_speed(pin, speed) {
-    analogWrite(pin, speed);
-}
-
-/*void check_motors(int speed) { // checks when motors should be stopped or started
-    current_time = millis()
-    for (bool side = 0; side <= 1; side ++) { // For left and right motor
-        if (current_time >= start_time[side]) { // Start the pulse
-            digitalWrite(side_pin[side], HIGH);
-            motor_pwm(side, speed);
-        }
-        if (current_time >= stop_time[side]) // Stop the pulse
-            digitalWrite(side_pin[side], LOW);
+    // Has veered right
+    else if (right_sensor.reading > 150 && left_sensor.reading < 200) {
+        right_turn_ratio = -5;
+        current_drift = RIGHT;
     }
+    // Was veering left, now is straight
+    else if (current_drift == LEFT) {
+        current_drift = NONE;
+        // Correct the turn
+        right_turn_ratio = -10; // Test value
+    }
+    // Was veering right, now is straight
+    else if (current_drift == RIGHT) {
+        current_drift = NONE;
+        // Correct the turn
+        right_turn_ratio = 10;
+    }
+    // Was straight last time, still is straight
+    else {
+        // finish correcting (if it was correcting at all)
+        if (right_turn_ratio > 0) right_turn_ratio -= 1;
+        if (right_turn_ratio < 0) right_turn_ratio += 1;
+    }
+
+
 }
-
-void motor_pwm(bool side, int speed) { // sets stop and start times for motors
-    // speed is between 0 and 5 inclusive
-    current_time = millis();
-    stop_time[side] = current_time + speed;
-    start_time[side] = current_time + 5;
-}*/
-
-
-// float turn_direction: turn left/right, determined by PID
-
-// float speed
-
-// Determine individual wheel's speed from turn_direction and speed
