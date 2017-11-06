@@ -1,5 +1,3 @@
-int sin_table[65];
-
 void calculate_sin_table() {
     for (int i = 0; i <= 64; i++)
     if (i == 64) sin_table[i] = 127;
