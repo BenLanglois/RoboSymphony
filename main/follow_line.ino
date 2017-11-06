@@ -1,3 +1,12 @@
+enum drift {
+  RIGHT,
+  LEFT,
+  NONE
+};
+
+int right_turn_ratio = 0;
+drift current_drift = NONE;
+
 
 
 void follow_line() {
