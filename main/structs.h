@@ -3,7 +3,7 @@ struct Motor {
   double speed;
   int encoder_reading, last_enc_reading;
   int enca_prev;
-  int last_enc_time;
+  unsigned long last_enc_time;
 };
 
 struct sensor {

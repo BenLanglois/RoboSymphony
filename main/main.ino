@@ -81,15 +81,7 @@ int custom_sin(int theta) {
 
 
 
-// Encoder
-void update_encoder(Motor *m) {
-  int enca_update_read = digitalRead(m->enca);
-  if (m->enca_prev == LOW && enca_update_read == HIGH) {
-    if (digitalRead(m->encb) == HIGH) m->encoder_reading++;
-    else m->encoder_reading--;
-  }
-  m->enca_prev = enca_update_read;
-}
+
 
 
 // Sensors
@@ -157,11 +149,12 @@ void follow_line() {
 
 // PID
 
-const int tics_per_rotation = 360;
+const int tics_per_rotation = 1450;
 const double meters_per_rotation = 0.251327412;
 double target_RPM = ((double)4.5) / meters_per_rotation;
 
-int curr_t, delta_t, delta_r;
+unsigned long curr_t;
+int delta_t, delta_r;
 double speed;
 
 int kp = 0, ki = 0, kd = 0;
@@ -172,16 +165,28 @@ double left_motor_power = 0, right_motor_power = 0;
 PID left_PID(&left.speed, &left_motor_power, &target_RPM, kp, ki, kd, DIRECT);
 PID right_PID(&right.speed, &right_motor_power, &target_RPM, kp, ki, kd, DIRECT);
 
-void update_motor_speed(Motor m) {
+void update_motor_speed(Motor *m) {
   curr_t = millis();
-  delta_t = curr_t - m.last_enc_time;
-  m.last_enc_time = curr_t;
-  delta_r = m.encoder_reading - m.last_enc_reading;
-  if (delta_t != 0) speed = ((double)delta_r) / ((double)delta_t);
-  m.speed = speed * (double)60000 / (double)tics_per_rotation;
+  delta_t = curr_t - m->last_enc_time;
+  //Serial.println(delta_t);
+  if(delta_t > 10) {
+    m->last_enc_time = curr_t;
+    delta_r = m->encoder_reading - m->last_enc_reading;
+    m->last_enc_reading = m->encoder_reading;
+    double tps = ((double)delta_r) / ((double)delta_t);
+    m->speed = tps*(double)60000/(double)tics_per_rotation;
+  }
 }
 
-
+// Encoder
+void update_encoder(Motor *m) {
+  int enca_update_read = digitalRead(m->enca);
+  if (m->enca_prev == LOW && enca_update_read == HIGH) {
+    if (digitalRead(m->encb) == HIGH) m->encoder_reading++;
+    else m->encoder_reading--;
+  }
+  m->enca_prev = enca_update_read;
+}
 
 
 
@@ -251,9 +256,7 @@ void setup() {
 
 void loop() {
   /*
-  //Update the encoders
-  update_encoder(&left);
-  update_encoder(&right);
+  
   */
   /*update_motor_speed(left);
     update_motor_speed(right);
@@ -273,6 +276,31 @@ void loop() {
 
     Serial.printf("Target: %d\tLeft: %d\tRight: %d\n", target_RPM, left.speed, right.speed);
   */
+
+  //Update the encoders
+  set_motor_power(left, 30);
+  set_motor_power(right,30);
+  update_encoder(&left);
+  update_encoder(&right);
+  //Serial.print("Left: ");
+  update_motor_speed(&left);
+  //Serial.print("Right: ");
+  update_motor_speed(&right);
+
+  
+  //delay(50);
+  //follow_line();
+
+  if (right_turn_ratio > 0) {
+    Serial.print("Right ");
+    Serial.println(right_turn_ratio);
+  } else if (right_turn_ratio > 0) {
+    Serial.print("Right ");
+    Serial.println(right_turn_ratio);
+  }
+  //set_motor_power(left, 50 - right_turn_ratio);
+  //set_motor_power(right, 50 + right_turn_ratio);
+
   follow_line();
 
   set_motor_power(left, 35 + right_turn_ratio);
