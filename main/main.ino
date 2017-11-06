@@ -5,8 +5,13 @@ using namespace std;
 
 #include "structs.h"
 
+double notes_per_second = 1.0;
+// in centimeters
+double note_length = 4;
 
-
+int motor_power = 60;
+//Positive turns right
+int turn_trim = 5;
 
 
 // Speaker
@@ -35,8 +40,8 @@ void update_speaker(int increment) {
 #define IN_2_4 15
 // Left motor
 #define ENABLE1 17
-#define ENCLA 9
-#define ENCLB 10
+#define ENCLA 10
+#define ENCLB 9
 // Right motor
 #define ENABLE2 16
 #define ENCRA 11
@@ -151,13 +156,13 @@ void follow_line() {
 
 const int tics_per_rotation = 1450;
 const double meters_per_rotation = 0.251327412;
-double target_RPM = ((double)4.5) / meters_per_rotation;
+double target_RPM = ((double)4.5) / meters_per_rotation; 
 
 unsigned long curr_t;
 int delta_t, delta_r;
 double speed;
 
-int kp = 0, ki = 0, kd = 0;
+double kp = 0.5, ki = 0, kd = 0;
 int target_speed;
 double left_motor_power = 0, right_motor_power = 0;
 
@@ -179,27 +184,14 @@ void update_motor_speed(Motor *m) {
 }
 
 // Encoder
-void update_encoder(Motor *m) {
-  int enca_update_read = digitalRead(m->enca);
-  if (m->enca_prev == LOW && enca_update_read == HIGH) {
-    if (digitalRead(m->encb) == HIGH) m->encoder_reading++;
-    else m->encoder_reading--;
-  }
-  m->enca_prev = enca_update_read;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
+void update_encoder(Motor *m) { 
+  int enca_update_read = digitalRead(m->enca); 
+  if (m->enca_prev == LOW && enca_update_read == HIGH) { 
+    if (digitalRead(m->encb) == HIGH) m->encoder_reading++; 
+    else m->encoder_reading--; 
+  } 
+  m->enca_prev = enca_update_read; 
+} 
 
 
 #define LED 13
@@ -249,12 +241,16 @@ void setup() {
   digitalWrite(IN_2_4, HIGH);
 
   //Enable PID controllers
-  //left_PID.SetMode(AUTOMATIC);
-  //right_PID.SetMode(AUTOMATIC);
+  left_PID.SetMode(AUTOMATIC);
+  right_PID.SetMode(AUTOMATIC);
+  left_PID.SetOutputLimits(20,255);
+  right_PID.SetOutputLimits(20,255);
 }
 
-
+unsigned long max_delay = 0;
+int loops = 0;
 void loop() {
+  long start_m = micros();
   /*
   
   */
@@ -278,38 +274,28 @@ void loop() {
   */
 
   //Update the encoders
-  set_motor_power(left, 30);
-  set_motor_power(right,30);
-  update_encoder(&left);
+  /*update_encoder(&left);
   update_encoder(&right);
-  //Serial.print("Left: ");
   update_motor_speed(&left);
-  //Serial.print("Right: ");
-  update_motor_speed(&right);
-
-  
-  //delay(50);
-  //follow_line();
-
-  if (right_turn_ratio > 0) {
-    Serial.print("Right ");
-    Serial.println(right_turn_ratio);
-  } else if (right_turn_ratio > 0) {
-    Serial.print("Right ");
-    Serial.println(right_turn_ratio);
-  }
-  //set_motor_power(left, 50 - right_turn_ratio);
-  //set_motor_power(right, 50 + right_turn_ratio);
+  update_motor_speed(&right);*/
 
   follow_line();
 
-  set_motor_power(left, 35 + right_turn_ratio);
-  set_motor_power(right, 30 - right_turn_ratio);
+  //set_motor_power(left, 35 + right_turn_ratio);
+  //set_motor_power(right, 30 - right_turn_ratio);
+  
+  
+  update_encoder(&left);
+  update_encoder(&right);
+  update_motor_speed(&left);
+  update_motor_speed(&right);
 
-  Serial.printf("%d, %d, %d, %d\n", 250, left_sensor.reading, 350, right_sensor.reading);
+  set_motor_power(left, motor_power + right_turn_ratio + turn_trim);
+  set_motor_power(right, motor_power - right_turn_ratio - turn_trim);
 
+  max_delay = max(max_delay, micros()-start_m);
 
-  delay(50);
+  
   /*if ((millis() / 1000) % 2) {
     digitalWrite(LED, LOW);
   } else {
