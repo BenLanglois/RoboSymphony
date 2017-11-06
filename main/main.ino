@@ -86,18 +86,13 @@ int custom_sin(int theta) {
 
 // Sensors
 
-// DEFINE THESE!!!
-#define LEFT_SENSOR 1
-#define RIGHT_SENSOR 2
-#define NOTE_SENSOR 3
-
-sensor left_sensor = {LEFT_SENSOR, 0};
-sensor right_sensor = {RIGHT_SENSOR, 0};
-sensor note_sensor = {NOTE_SENSOR, 0};
+sensor left_sensor = {A5, 0};
+sensor right_sensor = {A7, 0};
+sensor note_sensor = {A6, 0};
 
 
-void read_sensor(sensor s) {
-    s.reading = analogRead(s.port);
+void read_sensor(sensor *s) {
+    s->reading = analogRead(s->port);
 }
 
 
@@ -113,30 +108,31 @@ int right_turn_ratio = 0;
 drift current_drift = NONE;
 
 void follow_line() {
-    read_sensor(left_sensor);
-    read_sensor(right_sensor);
+    read_sensor(&left_sensor);
+    read_sensor(&right_sensor);
 
     // Has veered left
-    if (left_sensor.reading > 150 && right_sensor.reading < 200) { // Test values
-        right_turn_ratio = 5; // Test value
+    if (left_sensor.reading > 250 /*&& right_sensor.reading < 200*/) { // Test values
+        right_turn_ratio = 10; // Test value
         current_drift = LEFT;
     }
     // Has veered right
-    else if (right_sensor.reading > 150 && left_sensor.reading < 200) {
+    else if (right_sensor.reading < 350 /*&& left_sensor.reading < 200*/) {
         right_turn_ratio = -5;
         current_drift = RIGHT;
     }
+    /*
     // Was veering left, now is straight
     else if (current_drift == LEFT) {
         current_drift = NONE;
         // Correct the turn
-        right_turn_ratio = -10; // Test value
+        right_turn_ratio = -5; // Test value
     }
     // Was veering right, now is straight
     else if (current_drift == RIGHT) {
         current_drift = NONE;
         // Correct the turn
-        right_turn_ratio = 10;
+        right_turn_ratio = 5;
     }
     // Was straight last time, still is straight
     else {
@@ -144,7 +140,8 @@ void follow_line() {
         if (right_turn_ratio > 0) right_turn_ratio -= 1;
         if (right_turn_ratio < 0) right_turn_ratio += 1;
     }
-
+  */
+  else right_turn_ratio = 0;
 
 }
 
@@ -209,9 +206,9 @@ void update_encoder(Motor *m) {
 
 void setup() {
   //bool state = IDLE;
-  // pinMode(GRAYSCALE_SENSOR, INPUT);
-  // pinMode(LEFT_LINE_FOLLOWER, INPUT);
-  // pinMode(RIGHT_LINE_FOLLOWER, INPUT);
+  pinMode(note_sensor.port, INPUT);
+  pinMode(left_sensor.port, INPUT);
+  pinMode(right_sensor.port, INPUT);
 
   // pinMode(LEFT_MOTOR, OUTPUT);
   // pinMode(RIGHT_MOTOR, OUTPUT);
@@ -240,9 +237,9 @@ void setup() {
   //Set pin modes
   set_motor_pins(right);
   set_motor_pins(left);
-  pinMode(LEFT_SENSOR, INPUT);
-  pinMode(RIGHT_SENSOR, INPUT);
-  pinMode(NOTE_SENSOR, INPUT);
+  pinMode(left_sensor.port, INPUT);
+  pinMode(right_sensor.port, INPUT);
+  pinMode(note_sensor.port, INPUT);
   pinMode(LED, OUTPUT);
   pinMode(IN_1_3, OUTPUT);
   pinMode(IN_2_4, OUTPUT);
@@ -304,12 +301,20 @@ void loop() {
   //set_motor_power(left, 50 - right_turn_ratio);
   //set_motor_power(right, 50 + right_turn_ratio);
 
+  follow_line();
+
+  set_motor_power(left, 35 + right_turn_ratio);
+  set_motor_power(right, 30 - right_turn_ratio);
+
+  Serial.printf("%d, %d, %d, %d\n", 250, left_sensor.reading, 350, right_sensor.reading);
 
 
-
-  if ((millis() / 1000) % 2) {
+  delay(50);
+  /*if ((millis() / 1000) % 2) {
     digitalWrite(LED, LOW);
   } else {
     digitalWrite(LED, HIGH);
-  }
+  }*/
+
+  
 }
