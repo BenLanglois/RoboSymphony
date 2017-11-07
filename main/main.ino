@@ -1,5 +1,4 @@
 #include <PID_v1.h>
-#include <assert.h>
 #include <math.h>
 using namespace std;
 
@@ -9,26 +8,90 @@ double notes_per_second = 1.0;
 // in centimeters
 double note_length = 4;
 
-int motor_power = 60;
+int motor_power = 75;
 //Positive turns right
-int turn_trim = 5;
+int turn_trim = 10;
+
+
+// Sensors
+
+sensor left_sensor = {A5, 0};
+sensor right_sensor = {A7, 0};
+sensor note_sensor = {A6, 0};
+
+
+void read_sensor(sensor *s) {
+    s->reading = analogRead(s->port);
+}
+
+// TEMPORARY!
+unsigned long last_peak = 0;
+unsigned int delta_peak;
+
+
+// Sine Wave
+
+int sin_table[65];
+
+
+void calculate_sin_table() {
+    for (int i = 0; i <= 64; i++)
+    if (i == 64) sin_table[i] = 127;
+    else sin_table[i] = (int)(128 * sin(M_PI * i / 128));
+}
+
+int custom_sin(int theta) {
+    if (theta < 0 || theta >= 256) {
+      Serial.println("ERROR! theta value out of range");
+      return 0;
+    }
+    if (0 <= theta && theta < 64) return 128 + sin_table[theta];
+    else if (64 <= theta && theta < 128) return 128 + sin_table[128 - theta];
+    else if (128 <= theta && theta < 192) return 128 - sin_table[theta - 128];
+    else /*if (192 <= theta && theta < 256)*/ return 128 - sin_table[256 - theta];
+}
 
 
 // Speaker
 int dir = 1, extension = 0;
+int cutoff[] = {133, 148, 169, 195, 224, 252, 277};
+int tuning_increment[] = {6, 7, 8, 9, 10, 11, 12, 13};
+int note;
 
-void update_speaker(int increment) {
-  extension += dir * increment;
-  if (extension >= 255) {
-    dir = -1;
-    extension = 255;
-  }
-  else if (extension <= 0) {
-    dir = 1;
-    extension = 0;
-  }
 
-  PORTD = extension;
+void read_note() {
+  read_sensor(&note_sensor);
+  int reading = note_sensor.reading;
+  if (reading >= 295) note = 7;
+  else {
+    for (int i = 0; i < 7; i++) {
+      if (reading < cutoff[i]) {
+        note = i;
+        break;
+      }
+    }
+  }
+}
+
+void update_speaker() {
+  read_note();
+  for (int i = 0; i < 8; i++) {
+    extension += dir * tuning_increment[note];
+    if (extension >= 255) {
+      dir = -1;
+      extension = 255;
+
+      delta_peak = micros() - last_peak;
+      last_peak = micros();
+    }
+    else if (extension <= 0) {
+      dir = 1;
+      extension = 0;
+    }
+  
+    PORTD = custom_sin(extension);
+    delayMicroseconds(1);
+  }
 }
 
 
@@ -63,44 +126,6 @@ void set_motor_power(Motor m, int rate) {
 }
 
 
-
-// Sine Wave
-
-int sin_table[65];
-
-
-void calculate_sin_table() {
-    for (int i = 0; i <= 64; i++)
-    if (i == 64) sin_table[i] = 127;
-    else sin_table[i] = (int)(128 * sin(M_PI * i / 128));
-}
-
-int custom_sin(int theta) {
-    assert(0 <= theta && theta < 256);
-    if (0 <= theta && theta < 64) return 128 + sin_table[theta];
-    else if (64 <= theta && theta < 128) return 128 + sin_table[128 - theta];
-    else if (128 <= theta && theta < 192) return 128 - sin_table[theta - 128];
-    else if (192 <= theta && theta < 256) return 128 - sin_table[256 - theta];
-    assert(0);
-}
-
-
-
-
-
-
-// Sensors
-
-sensor left_sensor = {A5, 0};
-sensor right_sensor = {A7, 0};
-sensor note_sensor = {A6, 0};
-
-
-void read_sensor(sensor *s) {
-    s->reading = analogRead(s->port);
-}
-
-
 // Follow Line
 
 enum drift {
@@ -117,13 +142,13 @@ void follow_line() {
     read_sensor(&right_sensor);
 
     // Has veered left
-    if (left_sensor.reading > 250 /*&& right_sensor.reading < 200*/) { // Test values
-        right_turn_ratio = 10; // Test value
+    if (left_sensor.reading > 160 /*&& right_sensor.reading < 200*/) { // Test values
+        right_turn_ratio = 30; // Test value
         current_drift = LEFT;
     }
     // Has veered right
-    else if (right_sensor.reading < 350 /*&& left_sensor.reading < 200*/) {
-        right_turn_ratio = -5;
+    else if (right_sensor.reading > 390 /*&& left_sensor.reading < 200*/) {
+        right_turn_ratio = -20;
         current_drift = RIGHT;
     }
     /*
@@ -194,6 +219,10 @@ void update_encoder(Motor *m) {
 } 
 
 
+
+unsigned long last_micros;
+int delta_micros;
+
 #define LED 13
 
 void setup() {
@@ -245,62 +274,50 @@ void setup() {
   right_PID.SetMode(AUTOMATIC);
   left_PID.SetOutputLimits(20,255);
   right_PID.SetOutputLimits(20,255);
+
+  calculate_sin_table();
+
+  last_micros = micros();
 }
 
-unsigned long max_delay = 0;
-int loops = 0;
 void loop() {
-  long start_m = micros();
-  /*
   
-  */
-  /*update_motor_speed(left);
-    update_motor_speed(right);
-
-    // Update sensor readings
-    //read_sensor(note_sensor);
-
-    //Calculate motor power
-    left_PID.Compute();
-    right_PID.Compute();
-
-    follow_line();
-
-    //Update motor output power
-    set_motor_power(left, left_motor_power - right_turn_ratio);
-    set_motor_power(right, right_motor_power + right_turn_ratio);
-
-    Serial.printf("Target: %d\tLeft: %d\tRight: %d\n", target_RPM, left.speed, right.speed);
-  */
-
-  //Update the encoders
-  /*update_encoder(&left);
-  update_encoder(&right);
-  update_motor_speed(&left);
-  update_motor_speed(&right);*/
-
   follow_line();
 
   //set_motor_power(left, 35 + right_turn_ratio);
   //set_motor_power(right, 30 - right_turn_ratio);
   
-  
+  /*
   update_encoder(&left);
   update_encoder(&right);
   update_motor_speed(&left);
   update_motor_speed(&right);
-
+  */
+  
+  
   set_motor_power(left, motor_power + right_turn_ratio + turn_trim);
   set_motor_power(right, motor_power - right_turn_ratio - turn_trim);
-
-  max_delay = max(max_delay, micros()-start_m);
-
   
-  /*if ((millis() / 1000) % 2) {
+  
+  update_speaker();
+  
+  if ((millis() / 1000) % 2) {
     digitalWrite(LED, LOW);
   } else {
     digitalWrite(LED, HIGH);
-  }*/
+  }  
 
+  /*
+  if (!(millis() % 1000)) {
+    Serial.print(1000000.0 / delta_peak);
+    Serial.print(" NOTE: ");
+    Serial.println(note);
+  }
+  */
+
+
+  delta_micros = micros() - last_micros;
+  delayMicroseconds(max(0, 250 - delta_micros));
+  last_micros = micros();
   
 }
